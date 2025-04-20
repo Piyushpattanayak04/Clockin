@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,23 +15,25 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  // Simulating login process
   void _loginUser() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Simulated delay to mimic a real authentication process
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 2)); // simulate login delay
 
       setState(() => _isLoading = false);
 
-      // Simulated successful login
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login successful')),
       );
 
-      // Navigate to the Home Screen
-      Navigator.pushReplacementNamed(context, '/home');
+      final prefs = await SharedPreferences.getInstance();
+      final isProfileSet = prefs.containsKey('name');
+
+      Navigator.pushReplacementNamed(
+        context,
+        isProfileSet ? '/home' : '/profile-setup',
+      );
     }
   }
 
@@ -91,7 +94,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
-
-
-

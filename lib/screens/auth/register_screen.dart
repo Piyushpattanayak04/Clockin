@@ -1,6 +1,5 @@
-// register_screen.dart
-
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -13,23 +12,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  // Simulate registration process
   void _registerUser() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Simulated delay for registration process
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 2)); // simulate registration
 
       setState(() => _isLoading = false);
 
-      // Simulate success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Registration successful!')),
       );
 
-      // Navigate to Home Screen after registration
-      Navigator.pushReplacementNamed(context, '/home');
+      // Redirect to profile setup
+      Navigator.pushReplacementNamed(context, '/profile-setup');
     }
   }
 

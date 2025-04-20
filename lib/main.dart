@@ -1,20 +1,39 @@
 import 'package:flutter/material.dart';
-import 'screens/auth/login_screen.dart'; // Import the login screen
-import 'screens/home_screen.dart'; // Import the home screen
-import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/admin/qr_scanner_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/team_registration_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/my_tickets_screen.dart';
+import 'screens/profile/profile_screen.dart';
+import 'screens/profile/profile_setup_screen.dart';
 import 'utils/constants.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final prefs = await SharedPreferences.getInstance();
+  final isLoggedIn = prefs.containsKey('email'); // Assuming login saves 'email'
+  final isProfileSet = prefs.containsKey('name');
+
+  String initialRoute = '/login';
+  if (isLoggedIn && isProfileSet) {
+    initialRoute = '/home';
+  } else if (isLoggedIn && !isProfileSet) {
+    initialRoute = '/profile-setup';
+  }
+
+  runApp(MyApp(startRoute: initialRoute));
 }
 
 class MyApp extends StatelessWidget {
+  final String startRoute;
+
+  const MyApp({super.key, required this.startRoute});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -23,14 +42,18 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      initialRoute: '/',
+      initialRoute: startRoute,
       routes: {
-        '/': (context) => LoginScreen(), // The login screen route
-        '/home': (context) => HomeScreen(), // The home screen route
-        '/register': (context) => RegisterScreen(), // Registration screen route
-        '/qrScanner': (context) => QRScannerScreen(), // QR scanner route
-        '/adminDashboard': (context) => AdminDashboardScreen(), // Admin dashboard route
-        '/team-registration': (context) => TeamRegistrationScreen(), // Team registration screen route
+        '/': (context) => const LoginScreen(), // base route
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => RegisterScreen(),
+        '/profile-setup': (context) => const ProfileSetupScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/qrScanner': (context) => QRScannerScreen(),
+        '/adminDashboard': (context) => const AdminDashboardScreen(),
+        '/team-registration': (context) => const TeamRegistrationScreen(),
+        '/my-tickets': (context) => const MyTicketsScreen(),
+        '/profile': (context) => const ProfileScreen(),
       },
     );
   }
