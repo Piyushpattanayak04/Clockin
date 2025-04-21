@@ -11,6 +11,8 @@ import 'screens/my_tickets_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'utils/constants.dart';
+import 'theme/dark_theme.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,13 +40,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppConstants.appTitle,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+      themeMode: ThemeMode.dark, // 🔥 Always use dark mode
+      theme: ThemeData.light(),  // (not used, but required)
+      darkTheme: AppDarkTheme.theme, // 👈 this applies your dark theme
       initialRoute: startRoute,
       routes: {
-        '/': (context) => const LoginScreen(), // base route
+        '/': (context) => const LoginScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => RegisterScreen(),
         '/profile-setup': (context) => const ProfileSetupScreen(),
