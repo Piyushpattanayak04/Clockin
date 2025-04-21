@@ -16,7 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Map<String, String>> _events = const [
-    {'id': 'event1', 'name': 'Hack-o-Clock'},
+    {'id': 'event1', 'name': 'hack-o-clock'},
   ];
 
   void _onItemTapped(int index) {
