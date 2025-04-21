@@ -13,12 +13,11 @@ import 'screens/profile/profile_setup_screen.dart';
 import 'utils/constants.dart';
 import 'theme/dark_theme.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
-  final isLoggedIn = prefs.containsKey('email'); // Assuming login saves 'email'
+  final isLoggedIn = prefs.containsKey('email'); // 🔐 Login persisted
   final isProfileSet = prefs.containsKey('name');
 
   String initialRoute = '/login';
@@ -40,9 +39,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppConstants.appTitle,
-      themeMode: ThemeMode.dark, // 🔥 Always use dark mode
-      theme: ThemeData.light(),  // (not used, but required)
-      darkTheme: AppDarkTheme.theme, // 👈 this applies your dark theme
+      themeMode: ThemeMode.dark,
+      theme: ThemeData.light(),
+      darkTheme: AppDarkTheme.theme,
       initialRoute: startRoute,
       routes: {
         '/': (context) => const LoginScreen(),

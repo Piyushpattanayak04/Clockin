@@ -47,7 +47,8 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
           eventName: eventName,
           date: "2025-04-20",
           teamName: _teamNameController.text.trim(),
-          qrCodeData: "${_teamNameController.text.trim()}|${_memberNameController.text.trim()}|${_collegeController.text.trim()}",
+          qrCodeData: "${eventName}_${_memberNameController.text.trim()}_${_teamNameController.text.trim()}_${_collegeController.text.trim()}",
+
         );
 
         final success = await _saveTicketToPreferences(ticket);

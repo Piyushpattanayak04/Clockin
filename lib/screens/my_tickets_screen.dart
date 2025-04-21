@@ -1,4 +1,3 @@
-// ✅ my_tickets_screen.dart with deletion
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,7 +7,7 @@ class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({super.key});
 
   @override
-  _MyTicketsScreenState createState() => _MyTicketsScreenState();
+  State<MyTicketsScreen> createState() => _MyTicketsScreenState();
 }
 
 class _MyTicketsScreenState extends State<MyTicketsScreen> {
@@ -48,67 +47,71 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Tickets'), centerTitle: true),
-      body: _tickets.isEmpty
-          ? const Center(
-        child: Text(
-          'No tickets found.',
-          style: TextStyle(color: Colors.white70),
-        ),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _tickets.length,
-        itemBuilder: (context, index) {
-          final ticket = _tickets[index];
-          return Card(
-            color: Colors.grey[900],
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        ticket.eventName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.redAccent),
-                        onPressed: () => _deleteTicket(index),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Date: ${ticket.date}', style: const TextStyle(color: Colors.white70)),
-                  Text('Team: ${ticket.teamName}', style: const TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 12),
-                  ticket.qrCodeData.isNotEmpty
-                      ? Center(
-                    child: QrImageView(
-                      data: ticket.qrCodeData,
-                      version: QrVersions.auto,
-                      size: 150,
-                      backgroundColor: Colors.white,
+    final bool isStandalone = ModalRoute.of(context)?.settings.name == '/my-tickets';
+
+    final ticketList = _tickets.isEmpty
+        ? const Center(
+      child: Text('No tickets found.', style: TextStyle(color: Colors.white70)),
+    )
+        : ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _tickets.length,
+      itemBuilder: (context, index) {
+        final ticket = _tickets[index];
+        return Card(
+          color: Colors.grey[900],
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      ticket.eventName,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
-                  )
-                      : const Center(child: Text('QR Code not available', style: TextStyle(color: Colors.white))),
-                ],
-              ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                      onPressed: () => _deleteTicket(index),
+                    )
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('Date: ${ticket.date}', style: const TextStyle(color: Colors.white70)),
+                Text('Team: ${ticket.teamName}', style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 12),
+                ticket.qrCodeData.isNotEmpty
+                    ? Center(
+                  child: QrImageView(
+                    data: ticket.qrCodeData,
+                    version: QrVersions.auto,
+                    size: 150,
+                    backgroundColor: Colors.white,
+                  ),
+                )
+                    : const Center(child: Text('QR Code not available', style: TextStyle(color: Colors.white))),
+              ],
             ),
-          );
-        },
+          ),
+        );
+      },
+    );
+
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushReplacementNamed(context, '/home');
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('My Tickets')),
+        body: ticketList,
       ),
     );
   }

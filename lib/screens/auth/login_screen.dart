@@ -21,14 +21,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await Future.delayed(const Duration(seconds: 2)); // simulate login delay
 
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('email', _emailController.text.trim()); // ✅ save login flag
+      final isProfileSet = prefs.containsKey('name');
+
       setState(() => _isLoading = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login successful')),
       );
-
-      final prefs = await SharedPreferences.getInstance();
-      final isProfileSet = prefs.containsKey('name');
 
       Navigator.pushReplacementNamed(
         context,
