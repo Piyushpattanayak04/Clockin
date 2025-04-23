@@ -6,8 +6,6 @@ import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/admin/qr_scanner_screen.dart';
-import 'screens/admin_dashboard_screen.dart';
 import 'screens/team_registration_screen.dart';
 import 'screens/my_tickets_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -45,8 +43,6 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreen(),
-        '/qrScanner': (context) => QRScannerScreen(),
-        '/adminDashboard': (context) => const AdminDashboardScreen(),
         '/team-registration': (context) => const TeamRegistrationScreen(),
         '/my-tickets': (context) => const MyTicketsScreen(),
         '/profile': (context) => const ProfileScreen(),
