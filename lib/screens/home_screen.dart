@@ -43,7 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text("Exit App"),
         content: const Text("Are you sure you want to exit?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Cancel")),
           TextButton(
             onPressed: () {
               if (Platform.isAndroid) {
@@ -76,7 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const DrawerHeader(
                 decoration: BoxDecoration(color: Colors.deepPurple),
-                child: Text('Welcome!', style: TextStyle(color: Colors.white, fontSize: 24)),
+                child:
+                Text('Welcome!', style: TextStyle(color: Colors.white, fontSize: 24)),
               ),
               ListTile(
                 leading: const Icon(Icons.person),
@@ -109,13 +112,45 @@ class _HomeScreenState extends State<HomeScreen> {
             final event = _events[index];
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 10),
-              child: ListTile(
-                title: Text(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 4,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _selectEvent(
+                  context,
+                  event['id']!,
                   event['name']!,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _selectEvent(context, event['id']!, event['name']!),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ClipRRect(
+                      borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
+                      child: Image.asset(
+                        'assets/banner.png',
+                        fit: BoxFit.cover,
+                        height: 150,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            event['name']!,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 16),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -126,7 +161,8 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: _onItemTapped,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
-            BottomNavigationBarItem(icon: Icon(Icons.confirmation_number), label: 'My Tickets'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.confirmation_number), label: 'My Tickets'),
           ],
         ),
       ),

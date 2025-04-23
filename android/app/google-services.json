@@ -51,6 +51,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "813360610878-11kbv7rhvve2hpn9amijrsb4gklh8q78.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.clockin_v2",
+            "certificate_hash": "984a54484263a982f43c9c9be28d934374caf9ae"
+          }
+        },
+        {
           "client_id": "813360610878-2cfgph1svgurmhum205hu6668ndvncjk.apps.googleusercontent.com",
           "client_type": 3
         }
