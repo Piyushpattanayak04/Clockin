@@ -1,51 +1,61 @@
-import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
-  // Mock user data for authentication
-  final _users = <String, String>{
-    'test@example.com': 'password123', // email: password
-  };
+  final _auth = FirebaseAuth.instance;
 
-  // Method for login
-  Future<bool> login({required String email, required String password}) async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-
-    if (_users.containsKey(email) && _users[email] == password) {
-      return true;
-    } else {
-      return false;
+  Future<String?> registerWithEmail(String email, String password) async {
+    try {
+      final userCred = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await userCred.user!.sendEmailVerification();
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return e.message;
     }
   }
 
-  // Method for registration
-  Future<bool> register({
-    required String email,
-    required String password,
-    required String confirmPassword,
-  }) async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-
-    if (password != confirmPassword) {
-      return false; // Passwords do not match
+  Future<String?> signInWithEmail(String email, String password) async {
+    try {
+      final userCred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      if (!userCred.user!.emailVerified) {
+        await userCred.user!.sendEmailVerification();
+        return 'Please verify your email. Check your inbox!';
+      }
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return e.message;
     }
+  }
 
-    if (_users.containsKey(email)) {
-      return false; // Email already registered
+  Future<String?> signInWithGoogle() async {
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return 'Google sign-in cancelled';
+
+      final googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await _auth.signInWithCredential(credential);
+      return null;
+    } catch (e) {
+      return e.toString();
     }
-
-    _users[email] = password; // Register the new user
-    return true;
   }
 
-  // Method to check if the user is already logged in (mocked here)
-  Future<bool> isUserLoggedIn() async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-    return false; // No user logged in (for mock purposes)
+  Future<void> signOut() async {
+    await _auth.signOut();
+    await GoogleSignIn().signOut();
   }
 
-  // Mock logout method
-  Future<void> logout() async {
-    await Future.delayed(const Duration(seconds: 1));
-    // Implement any logout logic (e.g., clear session or token)
-  }
+  User? get currentUser => _auth.currentUser;
 }

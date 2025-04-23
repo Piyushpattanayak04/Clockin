@@ -38,9 +38,7 @@ dependencies:
   permission_handler: ^11.3.0
   mobile_scanner: ^3.5.2
   shared_preferences: ^2.2.2
-
-
-
+  google_sign_in: ^6.2.1
   qr_flutter: ^4.1.0
   
   # Flutter package for Flutter UI components

@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'my_tickets_screen.dart';
 import 'profile/profile_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () {
               if (Platform.isAndroid) {
-                SystemNavigator.pop(); // Close app
+                SystemNavigator.pop();
               } else {
                 exit(0);
               }
@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    return false; // We already handled the exit
+    return shouldExit ?? false;
   }
 
   @override
@@ -93,8 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
                 onTap: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.clear();
+                  await FirebaseAuth.instance.signOut();
                   Navigator.pop(context);
                   Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
                 },

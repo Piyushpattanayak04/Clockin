@@ -1,33 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
+import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/admin/qr_scanner_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/team_registration_screen.dart';
-import 'screens/auth/register_screen.dart';
 import 'screens/my_tickets_screen.dart';
 import 'screens/profile/profile_screen.dart';
-import 'screens/profile/profile_setup_screen.dart';
 import 'utils/constants.dart';
 import 'theme/dark_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  final prefs = await SharedPreferences.getInstance();
-  final isLoggedIn = prefs.containsKey('email'); // 🔐 Login persisted
-  final isProfileSet = prefs.containsKey('name');
+  final user = FirebaseAuth.instance.currentUser;
+  final String startRoute = user != null ? '/home' : '/login';
 
-  String initialRoute = '/login';
-  if (isLoggedIn && isProfileSet) {
-    initialRoute = '/home';
-  } else if (isLoggedIn && !isProfileSet) {
-    initialRoute = '/profile-setup';
-  }
-
-  runApp(MyApp(startRoute: initialRoute));
+  runApp(MyApp(startRoute: startRoute));
 }
 
 class MyApp extends StatelessWidget {
@@ -38,6 +34,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: AppConstants.appTitle,
       themeMode: ThemeMode.dark,
       theme: ThemeData.light(),
@@ -46,8 +43,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginScreen(),
         '/login': (context) => const LoginScreen(),
-        '/register': (context) => RegisterScreen(),
-        '/profile-setup': (context) => const ProfileSetupScreen(),
+        '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreen(),
         '/qrScanner': (context) => QRScannerScreen(),
         '/adminDashboard': (context) => const AdminDashboardScreen(),

@@ -1,9 +1,6 @@
-// ✅ team_registration_screen.dart with duplicate prevention
-// Place this content in team_registration_screen.dart
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'my_tickets_screen.dart';
 
 class TeamRegistrationScreen extends StatefulWidget {
@@ -15,16 +12,15 @@ class TeamRegistrationScreen extends StatefulWidget {
 
 class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
-
   final _teamNameController = TextEditingController();
   final _memberNameController = TextEditingController();
-  final _contactController = TextEditingController();
   final _collegeController = TextEditingController();
   final _secretCodeController = TextEditingController();
 
   bool _isLoading = false;
   late String eventId;
   late String eventName;
+  late String email;
 
   @override
   void didChangeDependencies() {
@@ -32,64 +28,77 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     final args = ModalRoute.of(context)!.settings.arguments as Map<String, String>;
     eventId = args['eventId']!;
     eventName = args['eventName']!;
+    final user = FirebaseAuth.instance.currentUser;
+    email = user?.email ?? '';
+    _prefillData(email);
   }
 
-  void _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      await Future.delayed(const Duration(seconds: 2));
-
-      bool isCodeValid = _secretCodeController.text.trim() == 'ABC123456789XYZ0';
-      setState(() => _isLoading = false);
-
-      if (isCodeValid) {
-        final ticket = Ticket(
-          eventName: eventName,
-          date: "2025-04-20",
-          teamName: _teamNameController.text.trim(),
-          qrCodeData: "${eventName}_${_memberNameController.text.trim()}_${_teamNameController.text.trim()}_${_collegeController.text.trim()}",
-
-        );
-
-        final success = await _saveTicketToPreferences(ticket);
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Team registered successfully!")),
-          );
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const MyTicketsScreen()),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Invalid secret code")),
-        );
-      }
+  Future<void> _prefillData(String email) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser!.uid)
+        .get();
+    final data = doc.data();
+    if (data != null) {
+      _memberNameController.text = data['name'] ?? '';
+      _collegeController.text = data['college'] ?? '';
     }
   }
 
-  Future<bool> _saveTicketToPreferences(Ticket ticket) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> storedTickets = prefs.getStringList('tickets') ?? [];
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    // Check for duplicates
-    bool alreadyRegistered = storedTickets.any((t) {
-      final decoded = jsonDecode(t);
-      return decoded['teamName'] == ticket.teamName && decoded['eventName'] == ticket.eventName;
+    setState(() => _isLoading = true);
+    final codeEntered = _secretCodeController.text.trim();
+
+    final codeDoc = await FirebaseFirestore.instance.collection('codes').doc(email).get();
+    if (!codeDoc.exists || codeDoc['code'] != codeEntered) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid code or email combination")),
+      );
+      return;
+    }
+
+    final teamName = _teamNameController.text.trim();
+    final memberName = _memberNameController.text.trim();
+    final collegeName = _collegeController.text.trim();
+    final qrCodeData = "${eventName}_${memberName}_${teamName}_$collegeName";
+
+    final eventDocRef = FirebaseFirestore.instance.collection('tickets').doc(eventName);
+    await eventDocRef.set({'eventName': eventName}, SetOptions(merge: true)); // ✅ Add eventName field
+
+    final teamDocRef = eventDocRef.collection('teams').doc(teamName);
+    await teamDocRef.set({'teamName': teamName}, SetOptions(merge: true)); // ✅ Add teamName field
+
+    final memberRef = teamDocRef.collection('members').doc(memberName);
+    final memberDoc = await memberRef.get();
+    if (memberDoc.exists) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You have already registered in this team.")),
+      );
+      return;
+    }
+
+    await memberRef.set({
+      'eventName': eventName,
+      'teamName': teamName,
+      'memberName': memberName,
+      'email': email,
+      'collegeName': collegeName,
+      'qrCode': qrCodeData,
+      'date': DateTime.now().toIso8601String(),
     });
 
-    if (alreadyRegistered) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You already registered this team for this event.")),
-      );
-      return false;
-    }
-
-    storedTickets.add(jsonEncode(ticket.toJson()));
-    await prefs.setStringList('tickets', storedTickets);
-    return true;
+    setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ Registration successful!")),
+    );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MyTicketsScreen()),
+    );
   }
 
   @override
@@ -105,32 +114,26 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
               TextFormField(
                 controller: _teamNameController,
                 decoration: const InputDecoration(labelText: 'Team Name'),
-                validator: (value) => value != null && value.isNotEmpty ? null : 'Enter team name',
+                validator: (value) => value!.isEmpty ? 'Enter team name' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _memberNameController,
                 decoration: const InputDecoration(labelText: 'Your Name'),
-                validator: (value) => value != null && value.isNotEmpty ? null : 'Enter your name',
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _contactController,
-                decoration: const InputDecoration(labelText: 'Contact Number'),
-                keyboardType: TextInputType.phone,
-                validator: (value) => value != null && value.length == 10 ? null : 'Enter valid contact number',
+                validator: (value) => value!.isEmpty ? 'Enter your name' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _collegeController,
                 decoration: const InputDecoration(labelText: 'College Name'),
-                validator: (value) => value != null && value.isNotEmpty ? null : 'Enter college name',
+                validator: (value) => value!.isEmpty ? 'Enter your college' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _secretCodeController,
-                decoration: const InputDecoration(labelText: '16-Digit Secret Code'),
-                validator: (value) => value != null && value.length == 16 ? null : 'Enter valid 16-digit code',
+                decoration: const InputDecoration(labelText: '7-Digit Secret Code'),
+                validator: (value) =>
+                value!.length == 7 ? null : 'Must be 7 characters',
               ),
               const SizedBox(height: 20),
               _isLoading
@@ -146,33 +149,3 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     );
   }
 }
-
-class Ticket {
-  final String eventName;
-  final String date;
-  final String teamName;
-  final String qrCodeData;
-
-  Ticket({
-    required this.eventName,
-    required this.date,
-    required this.teamName,
-    required this.qrCodeData,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'eventName': eventName,
-    'date': date,
-    'teamName': teamName,
-    'qrCodeData': qrCodeData,
-  };
-
-  factory Ticket.fromJson(Map<String, dynamic> json) => Ticket(
-    eventName: json['eventName'],
-    date: json['date'],
-    teamName: json['teamName'],
-    qrCodeData: json['qrCodeData'],
-  );
-}
-
-

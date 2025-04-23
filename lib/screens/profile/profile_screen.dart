@@ -1,5 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -9,29 +10,43 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String name = "", email = "", phone = "", college = "";
+  String name = "", email = "", college = "";
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadUserProfile();
   }
 
-  Future<void> _loadProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      name = prefs.getString('name') ?? '';
-      email = prefs.getString('email') ?? '';
-      phone = prefs.getString('phone') ?? '';
-      college = prefs.getString('college') ?? '';
-    });
+  Future<void> _loadUserProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      email = user.email ?? '';
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        setState(() {
+          name = data['name'] ?? '';
+          college = data['college'] ?? '';
+          isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Profile")),
-      body: Padding(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,18 +59,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 20),
             ProfileItem(label: "Name", value: name),
             ProfileItem(label: "Email", value: email),
-            ProfileItem(label: "Phone", value: phone),
             ProfileItem(label: "College", value: college),
             const Spacer(),
             Center(
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.clear(); // Clear all saved data on logout
+                  await FirebaseAuth.instance.signOut();
                   Navigator.pushReplacementNamed(context, '/login');
                 },
                 icon: const Icon(Icons.logout),
-                label: const Text("Logout & Reset"),
+                label: const Text("Logout"),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
               ),
             )
