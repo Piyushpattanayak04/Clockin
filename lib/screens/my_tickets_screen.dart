@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({super.key});
@@ -17,48 +19,63 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchTickets();
+    _loadTickets();
   }
 
-  Future<void> _fetchTickets() async {
+  Future<void> _loadTickets() async {
     setState(() => _isLoading = true);
-    final email = FirebaseAuth.instance.currentUser?.email;
-    if (email == null) return;
+    await _loadTicketsFromCache();
+    if (_tickets.isEmpty) {
+      await _fetchTicketsFromFirestore();
+    }
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
 
-    debugPrint("✅ Fetching tickets for user: $email");
-
-    final List<Ticket> fetchedTickets = [];
-    const eventName = 'hack-o-clock';
-
-    final teamsSnapshot = await FirebaseFirestore.instance
-        .collection('tickets')
-        .doc(eventName)
-        .collection('teams')
-        .get();
-
-    for (final teamDoc in teamsSnapshot.docs) {
-      final teamName = teamDoc.id;
-
-      final membersSnapshot = await FirebaseFirestore.instance
-          .collection('tickets')
-          .doc(eventName)
-          .collection('teams')
-          .doc(teamName)
-          .collection('members')
-          .get();
-
-      for (final memberDoc in membersSnapshot.docs) {
-        final data = memberDoc.data();
-        if ((data['email'] ?? '').toLowerCase().trim() == email.toLowerCase().trim()) {
-          fetchedTickets.add(Ticket.fromJson(data));
-        }
+  Future<void> _loadTicketsFromCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> ticketJsonList = prefs.getStringList('myTickets') ?? [];
+    if (ticketJsonList.isNotEmpty) {
+      final List<Ticket> cachedTickets = ticketJsonList
+          .map((jsonString) => Ticket.fromJson(jsonDecode(jsonString)))
+          .toList();
+      if (mounted) {
+        setState(() {
+          _tickets = cachedTickets;
+        });
       }
     }
+  }
 
-    setState(() {
-      _tickets = fetchedTickets;
-      _isLoading = false;
-    });
+  Future<void> _fetchTicketsFromFirestore() async {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    if (email == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    final membersSnapshot = await FirebaseFirestore.instance
+        .collectionGroup('members')
+        .where('email', isEqualTo: email.toLowerCase().trim())
+        .get();
+    final List<Ticket> fetchedTickets =
+    membersSnapshot.docs.map((doc) => Ticket.fromJson(doc.data())).toList();
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> ticketJsonList =
+    fetchedTickets.map((ticket) => jsonEncode(ticket.toJson())).toList();
+    await prefs.setStringList('myTickets', ticketJsonList);
+    if (mounted) {
+      setState(() {
+        _tickets = fetchedTickets;
+      });
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    await _fetchTicketsFromFirestore();
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -73,19 +90,23 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-          onRefresh: _fetchTickets,
+          onRefresh: _handleRefresh,
           child: _tickets.isEmpty
-              ? ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: const [
-              SizedBox(height: 150),
-              Center(
-                child: Text(
-                  'No tickets found.',
-                  style: TextStyle(color: Colors.white70),
+              ? LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints:
+                BoxConstraints(minHeight: constraints.maxHeight),
+                child: const Center(
+                  child: Text(
+                    'No tickets found.\nPull down to refresh.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ),
               ),
-            ],
+            ),
           )
               : ListView.builder(
             padding: const EdgeInsets.all(12),
@@ -113,9 +134,19 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text('Team: ${ticket.teamName}',
-                          style: const TextStyle(color: Colors.white70)),
-                      Text('Date: ${ticket.date}',
-                          style: const TextStyle(color: Colors.white70)),
+                          style: const TextStyle(
+                              color: Colors.white70)),
+                      // ### MODIFIED SECTION ###
+                      // Display Roll Number and Class on the ticket
+                      Text('Roll No: ${ticket.rollNumber}',
+                          style: const TextStyle(
+                              color: Colors.white70)),
+                      Text('Class: ${ticket.className}',
+                          style: const TextStyle(
+                              color: Colors.white70)),
+                      Text('Date: ${ticket.date.split('T').first}',
+                          style: const TextStyle(
+                              color: Colors.white70)),
                       const SizedBox(height: 12),
                       Center(
                         child: QrImageView(
@@ -137,17 +168,24 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   }
 }
 
+// ### MODIFIED TICKET CLASS ###
 class Ticket {
   final String eventName;
   final String date;
   final String teamName;
   final String qrCodeData;
+  // New properties
+  final String rollNumber;
+  final String className;
 
   Ticket({
     required this.eventName,
     required this.date,
     required this.teamName,
     required this.qrCodeData,
+    // New required properties
+    required this.rollNumber,
+    required this.className,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) => Ticket(
@@ -155,5 +193,18 @@ class Ticket {
     date: json['date'] ?? '',
     teamName: json['teamName'] ?? '',
     qrCodeData: json['qrCode'] ?? '',
+    // New properties from JSON
+    rollNumber: json['rollNumber'] ?? '',
+    className: json['class'] ?? '',
   );
+
+  Map<String, dynamic> toJson() => {
+    'eventName': eventName,
+    'date': date,
+    'teamName': teamName,
+    'qrCode': qrCodeData,
+    // New properties to JSON
+    'rollNumber': rollNumber,
+    'class': className,
+  };
 }
