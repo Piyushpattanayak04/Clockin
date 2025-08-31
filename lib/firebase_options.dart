@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -28,15 +25,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -65,6 +56,43 @@ class DefaultFirebaseOptions {
     projectId: 'clockin-f9343',
     databaseURL: 'https://clockin-f9343-default-rtdb.firebaseio.com',
     storageBucket: 'clockin-f9343.firebasestorage.app',
+    androidClientId: '813360610878-11kbv7rhvve2hpn9amijrsb4gklh8q78.apps.googleusercontent.com',
+    iosClientId: '813360610878-l992ov9e2ougaeeuumubjt18c03hd66d.apps.googleusercontent.com',
     iosBundleId: 'com.example.clockinV2',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyDpBhqGriRKbA6cHRxnbZGEOmUrRsS9bwg',
+    appId: '1:813360610878:web:516ad95be6ef9161ab9b6f',
+    messagingSenderId: '813360610878',
+    projectId: 'clockin-f9343',
+    authDomain: 'clockin-f9343.firebaseapp.com',
+    databaseURL: 'https://clockin-f9343-default-rtdb.firebaseio.com',
+    storageBucket: 'clockin-f9343.firebasestorage.app',
+    measurementId: 'G-2WBGGD0903',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyAuaijJS6r5P7q8oD8ZREEzQlsAyfTkhAI',
+    appId: '1:813360610878:ios:fa0ab85e97fa2815ab9b6f',
+    messagingSenderId: '813360610878',
+    projectId: 'clockin-f9343',
+    databaseURL: 'https://clockin-f9343-default-rtdb.firebaseio.com',
+    storageBucket: 'clockin-f9343.firebasestorage.app',
+    androidClientId: '813360610878-11kbv7rhvve2hpn9amijrsb4gklh8q78.apps.googleusercontent.com',
+    iosClientId: '813360610878-l992ov9e2ougaeeuumubjt18c03hd66d.apps.googleusercontent.com',
+    iosBundleId: 'com.example.clockinV2',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyDpBhqGriRKbA6cHRxnbZGEOmUrRsS9bwg',
+    appId: '1:813360610878:web:93a0cc0955c8f93fab9b6f',
+    messagingSenderId: '813360610878',
+    projectId: 'clockin-f9343',
+    authDomain: 'clockin-f9343.firebaseapp.com',
+    databaseURL: 'https://clockin-f9343-default-rtdb.firebaseio.com',
+    storageBucket: 'clockin-f9343.firebasestorage.app',
+    measurementId: 'G-T2SPXP626X',
+  );
+
 }

@@ -46,17 +46,10 @@ flutter:
     - assets/icon.png
     - assets/startScreen.png
 
-flutter_native_splash:
-  color: "#000000"
-  image: assets/startScreen.png
-  android: true
-  ios: true
-  fullscreen: true
-  android_gravity: center
-  ios_content_mode: center
+
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/icon.png  # <-- Make sure this is icon, not splash
+  image_path: assets/icon.png
 
