@@ -5,6 +5,36 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'my_tickets_screen.dart';
 
+// Note: Ensure you have the Ticket class defined and imported correctly.
+// I'm assuming it's available from your my_tickets_screen.dart file or a model file.
+class Ticket {
+  final String eventName;
+  final String date;
+  final String teamName;
+  final String qrCodeData;
+  final String rollNumber;
+  final String className;
+
+  Ticket({
+    required this.eventName,
+    required this.date,
+    required this.teamName,
+    required this.qrCodeData,
+    required this.rollNumber,
+    required this.className,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'eventName': eventName,
+    'date': date,
+    'teamName': teamName,
+    'qrCode': qrCodeData,
+    'rollNumber': rollNumber,
+    'class': className,
+  };
+}
+
+
 class TeamRegistrationScreen extends StatefulWidget {
   const TeamRegistrationScreen({super.key});
 
@@ -18,7 +48,6 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
   final _memberNameController = TextEditingController();
   final _collegeController = TextEditingController();
   final _secretCodeController = TextEditingController();
-  // New: Controllers for the new fields
   final _rollNumberController = TextEditingController();
   final _classController = TextEditingController();
 
@@ -37,7 +66,7 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     eventName = args['eventName']!;
     final user = FirebaseAuth.instance.currentUser;
     email = user?.email ?? '';
-    _prefillData(email);
+    _prefillData();
     _fetchEventDetails();
   }
 
@@ -70,12 +99,15 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     }
   }
 
-  Future<void> _prefillData(String email) async {
-    // This function remains the same
+  Future<void> _prefillData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
     final doc = await FirebaseFirestore.instance
         .collection('users')
-        .doc(FirebaseAuth.instance.currentUser!.uid)
+        .doc(user.uid)
         .get();
+
     if (doc.exists && mounted) {
       final data = doc.data();
       _memberNameController.text = data?['name'] ?? '';
@@ -83,12 +115,24 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     }
   }
 
+  // ### MODIFIED SUBMIT LOGIC ###
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    final codeEntered = _secretCodeController.text.trim();
 
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Should not happen if user is on this screen, but good practice to check
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Authentication error. Please log in again.")),
+      );
+      return;
+    }
+    final String userId = user.uid;
+
+    final codeEntered = _secretCodeController.text.trim();
     final codeDoc = await FirebaseFirestore.instance
         .collection('codes')
         .doc(eventName)
@@ -104,22 +148,26 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     }
 
     final memberName = _memberNameController.text.trim();
-    // Modified: Default team name is now "GDG" for non-team events
     final String teamName = _isTeamBasedEvent == true
         ? _teamNameController.text.trim()
         : "GDG";
-
     final collegeName = _collegeController.text.trim();
-    // New: Get data from new controllers
     final rollNumber = _rollNumberController.text.trim();
     final className = _classController.text.trim();
-    // Modified: Update QR code string to include new data
     final qrCodeData = "${eventName}_${memberName}_${teamName}_${collegeName}_${rollNumber}_${className}";
     final registrationDate = DateTime.now().toIso8601String();
 
+    // Define references for the batch write
     final eventDocRef = FirebaseFirestore.instance.collection('tickets').doc(eventName);
     final teamDocRef = eventDocRef.collection('teams').doc(teamName);
     final memberRef = teamDocRef.collection('members').doc(memberName);
+
+    // **NEW**: Reference to the user-specific ticket index for fast lookups
+    final userTicketRef = FirebaseFirestore.instance
+        .collection('userTickets')
+        .doc(userId)
+        .collection('tickets')
+        .doc(); // Using .doc() generates a unique ID
 
     final memberDoc = await memberRef.get();
     if (memberDoc.exists) {
@@ -131,31 +179,40 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
       return;
     }
 
-    WriteBatch batch = FirebaseFirestore.instance.batch();
-    batch.set(eventDocRef, {'eventName': eventName}, SetOptions(merge: true));
-    batch.set(teamDocRef, {'teamName': teamName}, SetOptions(merge: true));
-    // Modified: Add new fields to Firestore document
-    batch.set(memberRef, {
+    // Create a map with all the ticket data once
+    final ticketData = {
       'eventName': eventName,
       'teamName': teamName,
       'memberName': memberName,
       'email': email,
       'collegeName': collegeName,
-      'rollNumber': rollNumber, // New
-      'class': className,       // New
+      'rollNumber': rollNumber,
+      'class': className,
       'qrCode': qrCodeData,
       'date': registrationDate,
-    });
+    };
+
+    // Use a batch to perform multiple writes atomically
+    WriteBatch batch = FirebaseFirestore.instance.batch();
+
+    // 1. Original write for event management
+    batch.set(eventDocRef, {'eventName': eventName}, SetOptions(merge: true));
+    batch.set(teamDocRef, {'teamName': teamName}, SetOptions(merge: true));
+    batch.set(memberRef, ticketData);
+
+    // 2. **NEW**: Write to the user's personal ticket index
+    batch.set(userTicketRef, ticketData);
+
     await batch.commit();
 
-    // Modified: Update Ticket object for local cache
+    // Update local cache
     final newTicket = Ticket(
       eventName: eventName,
       teamName: teamName,
       date: registrationDate,
       qrCodeData: qrCodeData,
-      rollNumber: rollNumber, // New
-      className: className,   // New
+      rollNumber: rollNumber,
+      className: className,
     );
 
     final prefs = await SharedPreferences.getInstance();
@@ -176,6 +233,7 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ... Your build method remains exactly the same ...
     return Scaffold(
       appBar: AppBar(title: Text("Register for $eventName")),
       body: _isTeamBasedEvent == null
@@ -208,8 +266,6 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
                 validator: (value) => value!.isEmpty ? 'Enter your college' : null,
               ),
               const SizedBox(height: 12),
-
-              // New: Added Roll Number and Class TextFormFields
               TextFormField(
                 controller: _rollNumberController,
                 decoration: const InputDecoration(labelText: 'Roll Number'),
@@ -222,7 +278,6 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
                 validator: (value) => value!.isEmpty ? 'Enter your Class' : null,
               ),
               const SizedBox(height: 12),
-
               TextFormField(
                 controller: _secretCodeController,
                 decoration: const InputDecoration(labelText: '7-Digit Secret Code'),

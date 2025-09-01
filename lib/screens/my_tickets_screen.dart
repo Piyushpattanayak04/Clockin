@@ -24,7 +24,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
   Future<void> _loadTickets() async {
     setState(() => _isLoading = true);
+    // First, try loading from the local cache
     await _loadTicketsFromCache();
+    // If cache is empty, fetch from Firestore
     if (_tickets.isEmpty) {
       await _fetchTicketsFromFirestore();
     }
@@ -48,38 +50,55 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     }
   }
 
+  // ### MODIFIED AND IMPROVED FETCH LOGIC ###
   Future<void> _fetchTicketsFromFirestore() async {
-    final email = FirebaseAuth.instance.currentUser?.email;
-    if (email == null) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       if (mounted) setState(() => _isLoading = false);
-      return;
+      return; // Not logged in, no tickets to fetch
     }
-    final membersSnapshot = await FirebaseFirestore.instance
-        .collectionGroup('members')
-        .where('email', isEqualTo: email.toLowerCase().trim())
-        .get();
-    final List<Ticket> fetchedTickets =
-    membersSnapshot.docs.map((doc) => Ticket.fromJson(doc.data())).toList();
-    final prefs = await SharedPreferences.getInstance();
-    final List<String> ticketJsonList =
-    fetchedTickets.map((ticket) => jsonEncode(ticket.toJson())).toList();
-    await prefs.setStringList('myTickets', ticketJsonList);
-    if (mounted) {
-      setState(() {
-        _tickets = fetchedTickets;
-      });
+
+    try {
+      // Direct, efficient query to the user's personal ticket collection
+      final userTicketsSnapshot = await FirebaseFirestore.instance
+          .collection('userTickets')
+          .doc(user.uid)
+          .collection('tickets')
+          .get();
+
+      final List<Ticket> fetchedTickets = userTicketsSnapshot.docs
+          .map((doc) => Ticket.fromJson(doc.data()))
+          .toList();
+
+      // Cache the newly fetched tickets
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> ticketJsonList =
+      fetchedTickets.map((ticket) => jsonEncode(ticket.toJson())).toList();
+      await prefs.setStringList('myTickets', ticketJsonList);
+
+      if (mounted) {
+        setState(() {
+          _tickets = fetchedTickets;
+        });
+      }
+    } catch (e) {
+      // Handle potential errors, e.g., network issues
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to fetch tickets: $e")),
+        );
+      }
     }
   }
 
   Future<void> _handleRefresh() async {
+    // Refreshing will always hit Firestore for the latest data
     await _fetchTicketsFromFirestore();
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // ... Your build method remains exactly the same ...
     return WillPopScope(
       onWillPop: () async {
         Navigator.pushReplacementNamed(context, '/home');
@@ -136,8 +155,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       Text('Team: ${ticket.teamName}',
                           style: const TextStyle(
                               color: Colors.white70)),
-                      // ### MODIFIED SECTION ###
-                      // Display Roll Number and Class on the ticket
                       Text('Roll No: ${ticket.rollNumber}',
                           style: const TextStyle(
                               color: Colors.white70)),
@@ -168,13 +185,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   }
 }
 
-// ### MODIFIED TICKET CLASS ###
+// Your Ticket class remains the same
 class Ticket {
   final String eventName;
   final String date;
   final String teamName;
   final String qrCodeData;
-  // New properties
   final String rollNumber;
   final String className;
 
@@ -183,7 +199,6 @@ class Ticket {
     required this.date,
     required this.teamName,
     required this.qrCodeData,
-    // New required properties
     required this.rollNumber,
     required this.className,
   });
@@ -193,7 +208,6 @@ class Ticket {
     date: json['date'] ?? '',
     teamName: json['teamName'] ?? '',
     qrCodeData: json['qrCode'] ?? '',
-    // New properties from JSON
     rollNumber: json['rollNumber'] ?? '',
     className: json['class'] ?? '',
   );
@@ -203,7 +217,6 @@ class Ticket {
     'date': date,
     'teamName': teamName,
     'qrCode': qrCodeData,
-    // New properties to JSON
     'rollNumber': rollNumber,
     'class': className,
   };
