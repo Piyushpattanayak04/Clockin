@@ -115,7 +115,6 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     }
   }
 
-  // ### MODIFIED SUBMIT LOGIC ###
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -123,7 +122,7 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Should not happen if user is on this screen, but good practice to check
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Authentication error. Please log in again.")),
@@ -131,14 +130,28 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
       return;
     }
     final String userId = user.uid;
+    final String email = user.email ?? '';
 
+    // 1. RE-ADDED: Universal & User-Specific Code Validation
     final codeEntered = _secretCodeController.text.trim();
     final codeDoc = await FirebaseFirestore.instance
         .collection('codes')
         .doc(eventName)
         .get();
 
-    if (!codeDoc.exists || codeDoc.data()?[email] != codeEntered) {
+    bool isCodeValid = false;
+    if (codeDoc.exists) {
+      final codeData = codeDoc.data() as Map<String, dynamic>;
+      final universalCode = codeData['universalCode'] as String?;
+
+      if (universalCode != null && codeEntered == universalCode) {
+        isCodeValid = true;
+      } else if (codeData[email] == codeEntered) {
+        isCodeValid = true;
+      }
+    }
+
+    if (!isCodeValid) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,29 +170,27 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
     final qrCodeData = "${eventName}_${memberName}_${teamName}_${collegeName}_${rollNumber}_${className}";
     final registrationDate = DateTime.now().toIso8601String();
 
-    // Define references for the batch write
+    // 2. MODIFIED: References now use the unique userId for the main ticket
     final eventDocRef = FirebaseFirestore.instance.collection('tickets').doc(eventName);
     final teamDocRef = eventDocRef.collection('teams').doc(teamName);
-    final memberRef = teamDocRef.collection('members').doc(memberName);
+    final memberRef = teamDocRef.collection('members').doc(userId); // Using userId is more robust!
 
-    // **NEW**: Reference to the user-specific ticket index for fast lookups
-    final userTicketRef = FirebaseFirestore.instance
-        .collection('userTickets')
-        .doc(userId)
-        .collection('tickets')
-        .doc(); // Using .doc() generates a unique ID
+    // Your new reference for the fast user lookup - this is great!
+    final userTicketRef = FirebaseFirestore.instance.collection('userTickets').doc(userId);
+    final userSpecificTicketRef = userTicketRef.collection('tickets').doc();
 
+    // This check is now 100% reliable because it uses the unique userId
     final memberDoc = await memberRef.get();
     if (memberDoc.exists) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You have already registered in this event/team.")),
+        const SnackBar(content: Text("You have already registered for this event.")),
       );
       return;
     }
 
-    // Create a map with all the ticket data once
+    // A single data map for both writes
     final ticketData = {
       'eventName': eventName,
       'teamName': teamName,
@@ -192,20 +203,23 @@ class _TeamRegistrationScreenState extends State<TeamRegistrationScreen> {
       'date': registrationDate,
     };
 
-    // Use a batch to perform multiple writes atomically
+    // 3. UPDATED: Batch write to BOTH locations
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
-    // 1. Original write for event management
-    batch.set(eventDocRef, {'eventName': eventName}, SetOptions(merge: true));
-    batch.set(teamDocRef, {'teamName': teamName}, SetOptions(merge: true));
+    // Write 1: To the original event-centric collection (for admin views)
     batch.set(memberRef, ticketData);
 
-    // 2. **NEW**: Write to the user's personal ticket index
-    batch.set(userTicketRef, ticketData);
+    // Write 2: To the new user-centric collection (for fast lookups by the user)
+    batch.set(userSpecificTicketRef, ticketData);
+
+    // Also ensure the parent documents exist
+    batch.set(eventDocRef, {'eventName': eventName}, SetOptions(merge: true));
+    batch.set(teamDocRef, {'teamName': teamName}, SetOptions(merge: true));
+    batch.set(userTicketRef, {'email': email}, SetOptions(merge: true)); // Optional: store user email here
 
     await batch.commit();
 
-    // Update local cache
+    // Update local cache (remains the same)
     final newTicket = Ticket(
       eventName: eventName,
       teamName: teamName,

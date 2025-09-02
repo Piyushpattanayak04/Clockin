@@ -2,12 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // New: Import Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'my_tickets_screen.dart';
 import 'profile/profile_screen.dart';
 
-// New: A data model class for your events for type-safety and cleaner code.
+// A data model class for your events for type-safety and cleaner code.
 class Event {
   final String id;
   final String name;
@@ -33,10 +33,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // Removed: The hardcoded list is no longer needed.
-  // final List<Map<String, String>> _events = const [ ... ];
-
-  // New: Define a stream to listen for events from Firestore in real-time.
+  // A stream to listen for events from Firestore in real-time.
   final Stream<QuerySnapshot> _eventsStream =
   FirebaseFirestore.instance.collection('skeleton').snapshots();
 
@@ -44,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedIndex = index);
   }
 
-  // Modified: This function now accepts an Event object.
   void _selectEvent(BuildContext context, Event event) {
     Navigator.pushNamed(
       context,
@@ -118,10 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
                 onTap: () async {
-
-                  // Add these two lines to clear local data
                   final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('myQrCodes');
+                  await prefs.remove('myTickets');
 
                   await FirebaseAuth.instance.signOut();
                   Navigator.pop(context);
@@ -132,32 +126,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        // Modified: Replaced the static list with a StreamBuilder
         body: _selectedIndex == 0
             ? StreamBuilder<QuerySnapshot>(
           stream: _eventsStream,
           builder: (context, snapshot) {
-            // Handle loading state
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            // Handle error state
             if (snapshot.hasError) {
               return const Center(child: Text("Something went wrong!"));
             }
-            // Handle no data state
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return const Center(child: Text("No events found."));
             }
 
-            // If data exists, build the list
             return ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: snapshot.data!.docs.length,
               itemBuilder: (context, index) {
-                // Create an Event object from the Firestore document
                 final event =
                 Event.fromFirestore(snapshot.data!.docs[index]);
+
+                // ### MODIFIED SECTION ###
+                // Logic to determine which banner image to use
+                String bannerAsset;
+                if (event.name == 'hack-o-clock') {
+                  bannerAsset = 'assets/banner_hackoclock.png';
+                } else if (event.name == 'CAREER CATALYST') {
+                  bannerAsset = 'assets/banner_careercatalyst.png';
+                } else {
+                  bannerAsset = 'assets/banner_fallback.png';
+                }
+                // #########################
 
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 10),
@@ -174,7 +174,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(12)),
                           child: Image.asset(
-                            'assets/banner.png',
+                            // Use the bannerAsset variable here
+                            bannerAsset,
                             fit: BoxFit.cover,
                             height: 150,
                           ),
