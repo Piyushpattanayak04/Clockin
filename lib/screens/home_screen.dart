@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'my_tickets_screen.dart';
 import 'profile/profile_screen.dart';
 
@@ -11,14 +12,26 @@ import 'profile/profile_screen.dart';
 class Event {
   final String id;
   final String name;
+  final String description;
+  final String bannerUrl;
+  final bool isTeamBased;
 
-  Event({required this.id, required this.name});
+  Event({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.bannerUrl,
+    required this.isTeamBased,
+  });
 
   factory Event.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Event(
-      id: doc.id, // The document ID is the event's unique ID
-      name: data['eventName'] ?? '', // Get the eventName field
+      id: doc.id,
+      name: data['eventName'] ?? '',
+      description: data['description'] ?? '',
+      bannerUrl: data['bannerUrl'] ?? '',
+      isTeamBased: data['isTeamBasedEvent'] ?? false,
     );
   }
 }
@@ -42,10 +55,122 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selectEvent(BuildContext context, Event event) {
-    Navigator.pushNamed(
-      context,
-      '/team-registration',
-      arguments: {'eventId': event.id, 'eventName': event.name},
+    // Show event details bottom sheet before registration
+    _showEventDetails(context, event);
+  }
+
+  void _showEventDetails(BuildContext context, Event event) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Banner
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: event.bannerUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: event.bannerUrl,
+                      height: 200,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        height: 200,
+                        color: Colors.grey[800],
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 200,
+                        color: Colors.grey[800],
+                        child: const Icon(Icons.event, size: 64, color: Colors.grey),
+                      ),
+                    )
+                  : Container(
+                      height: 200,
+                      color: Colors.grey[800],
+                      child: const Icon(Icons.event, size: 64, color: Colors.grey),
+                    ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Event Name
+                    Text(
+                      event.name,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Team/Individual badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: event.isTeamBased ? Colors.blue : Colors.green,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        event.isTeamBased ? 'Team Event' : 'Individual Event',
+                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Description
+                    if (event.description.isNotEmpty) ...[
+                      const Text(
+                        'About',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Text(
+                            event.description,
+                            style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                          ),
+                        ),
+                      ),
+                    ] else
+                      const Expanded(
+                        child: Center(
+                          child: Text('No description available', style: TextStyle(color: Colors.grey)),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    // Register Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context); // Close bottom sheet
+                          Navigator.pushNamed(
+                            context,
+                            '/team-registration',
+                            arguments: {'eventId': event.id, 'eventName': event.name},
+                          );
+                        },
+                        child: const Text('Register Now', style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -144,65 +269,97 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(16),
               itemCount: snapshot.data!.docs.length,
               itemBuilder: (context, index) {
-                final event =
-                Event.fromFirestore(snapshot.data!.docs[index]);
+                            final event =
+                            Event.fromFirestore(snapshot.data!.docs[index]);
 
-                // ### MODIFIED SECTION ###
-                // Logic to determine which banner image to use
-                String bannerAsset;
-                if (event.name == 'hack-o-clock') {
-                  bannerAsset = 'assets/banner_hackoclock.png';
-                } else if (event.name == 'CAREER CATALYST') {
-                  bannerAsset = 'assets/banner_careercatalyst.png';
-                } else {
-                  bannerAsset = 'assets/banner_fallback.png';
-                }
-                // #########################
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  elevation: 4,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _selectEvent(context, event),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12)),
-                          child: Image.asset(
-                            // Use the bannerAsset variable here
-                            bannerAsset,
-                            fit: BoxFit.cover,
-                            height: 150,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                event.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              elevation: 4,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => _selectEvent(context, event),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(12)),
+                                      child: event.bannerUrl.isNotEmpty
+                                          ? CachedNetworkImage(
+                                              imageUrl: event.bannerUrl,
+                                              fit: BoxFit.cover,
+                                              height: 150,
+                                              placeholder: (context, url) => Container(
+                                                height: 150,
+                                                color: Colors.grey[800],
+                                                child: const Center(
+                                                  child: CircularProgressIndicator(),
+                                                ),
+                                              ),
+                                              errorWidget: (context, url, error) =>
+                                                  Container(
+                                                height: 150,
+                                                color: Colors.grey[800],
+                                                child: const Icon(
+                                                  Icons.event,
+                                                  size: 48,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            )
+                                          : Container(
+                                              height: 150,
+                                              color: Colors.grey[800],
+                                              child: const Icon(
+                                                Icons.event,
+                                                size: 48,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  event.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                if (event.description.isNotEmpty)
+                                                  Text(
+                                                    event.description,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey[400],
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Icon(Icons.arrow_forward_ios,
+                                              size: 16),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const Icon(Icons.arrow_forward_ios,
-                                  size: 16),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                            );
+                          },
             );
           },
         )
