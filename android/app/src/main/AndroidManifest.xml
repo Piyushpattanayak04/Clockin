@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
-        android:label="clockin_v2"
+        android:label="Checksy"
         android:name="${applicationName}"
         android:theme="@style/LaunchTheme"
         android:icon="@mipmap/ic_launcher">

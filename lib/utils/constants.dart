@@ -27,7 +27,7 @@ class AppConstants {
   ); // Purple accent for app buttons
 
   // Other constants
-  static const String appTitle = 'Event Management App';
+  static const String appTitle = 'Checksy';
   static const String registrationTitle = 'Team Registration';
   static const String attendanceTitle = 'Scan Attendance';
 }

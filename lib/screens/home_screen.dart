@@ -212,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Clock-in"),
+          title: const Text("Checksy"),
           centerTitle: true,
         ),
         drawer: Drawer(
